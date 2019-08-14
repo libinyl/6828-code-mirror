@@ -51,9 +51,3 @@ port install i386-elf-gcc
 添加调试设置,gdb remote debug,打断点调试即可.
 
 ## 5 最终效果
-
-
-
-
-
- 
