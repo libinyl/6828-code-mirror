@@ -47,9 +47,43 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
-
+TRAPHANDLER_NOEC(handler0, T_DIVIDE)
+TRAPHANDLER_NOEC(handler1, T_DEBUG)
+TRAPHANDLER_NOEC(handler2, T_NMI)
+TRAPHANDLER_NOEC(handler3, T_BRKPT)
+TRAPHANDLER_NOEC(handler4, T_OFLOW)
+TRAPHANDLER_NOEC(handler5, T_BOUND)
+TRAPHANDLER_NOEC(handler6, T_ILLOP)
+TRAPHANDLER_NOEC(handler7, T_DEVICE)
+TRAPHANDLER(handler8, T_DBLFLT)
+// 9 deprecated since 386
+TRAPHANDLER(handler10, T_TSS)
+TRAPHANDLER(handler11, T_SEGNP)
+TRAPHANDLER(handler12, T_STACK)
+TRAPHANDLER(handler13, T_GPFLT)
+TRAPHANDLER(handler14, T_PGFLT)
+// 15 reserved by intel
+TRAPHANDLER_NOEC(handler16, T_FPERR)
+TRAPHANDLER(handler17, T_ALIGN)
+TRAPHANDLER_NOEC(handler18, T_MCHK)
+TRAPHANDLER_NOEC(handler19, T_SIMDERR)
+// system call (interrupt)
+TRAPHANDLER_NOEC(handler48, T_SYSCALL)
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+
+//参考inc/trap.h中的Trapframe结构。tf_ss，tf_esp，tf_eflags，tf_cs，tf_eip，tf_err在中断发生时由处理器压入，所以现在只需要压入剩下寄存器（%ds,%es,通用寄存器）
+//切换到内核数据段
+_alltraps:
+pushl %ds
+pushl %es
+pushal
+
+movw $GD_KD, %ax
+movw %ax, %ds
+movw %ax, %es
+pushl %esp
+call trap
 

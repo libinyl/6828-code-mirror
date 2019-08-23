@@ -264,6 +264,24 @@ pde_t entry_pgdir[NPDENTRIES] = {
 
 这样一来,从虚拟内存到物理内存的计算方式为 `PA(VA) = PT[ VA前20bit ] + VA后 12bit  `
 
+为何 4KB 的分页,可以让后 12 位视为偏移量?
+
+因为 4096=2^12.
 
 
-
+实验三调用链:
+```
+start (kern/entry.S)
+i386_init (kern/init.c)
+    cons_init
+    mem_init
+    env_init
+    trap_init (still incomplete at this point)
+    env_create
+        env_alloc
+            env_setup_vm
+        load_icode
+            region_alloc
+    env_run
+        env_pop_tf
+```

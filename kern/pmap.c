@@ -188,7 +188,8 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, (uintptr_t) UPAGES, npages*sizeof(struct PageInfo), PADDR(pages), PTE_U | PTE_P);
+	boot_map_region(kern_pgdir, (uintptr_t) UPAGES, ROUNDUP(npages*sizeof(struct PageInfo),PGSIZE), PADDR(pages), PTE_U | PTE_P);
+
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
 	// (ie. perm = PTE_U | PTE_P).
@@ -279,7 +280,7 @@ page_init(void)
 	// free pages!
 	pages[0].pp_ref = 1;
 	pages[0].pp_link = NULL;
-	
+
 	size_t i;
 	for (i = 1; i < npages_basemem; i++) {
 		pages[i].pp_ref = 0;
@@ -465,21 +466,17 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
-    pte_t *pgtab = pgdir_walk(pgdir, va, 1); 
-    if (!pgtab) {
-        return -E_NO_MEM;
-    }
-    if (*pgtab & PTE_P) {
-        if (page2pa(pp) == PTE_ADDR(*pgtab)) {
-            *pgtab = page2pa(pp) | perm | PTE_P;
-            return 0;
-        } else {
-            page_remove(pgdir, va);
-        }
-    }
-    *pgtab = page2pa(pp) | perm | PTE_P;
-    pp->pp_ref++;
-    return 0;
+	pte_t *pgtab = pgdir_walk(pgdir, va, 1);
+	if (!pgtab) {
+		return -E_NO_MEM;
+	}
+
+	pp->pp_ref++;
+	if (*pgtab & PTE_P) {
+		page_remove(pgdir, va);
+	}
+	*pgtab = page2pa(pp) | perm | PTE_P;
+	return 0;
 }
 
 //
@@ -496,14 +493,14 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-    pte_t *pgtab = pgdir_walk(pgdir, va, 0); 
+    pte_t *pgtab = pgdir_walk(pgdir, va, 0);
     if (!pgtab) {
         return NULL;
     }
     if (pte_store) {
-        *pte_store = pgtab; 
+        *pte_store = pgtab;
     }
-    return pa2page(PTE_ADDR(*pgtab)); 
+    return pa2page(PTE_ADDR(*pgtab));
 }
 
 //
@@ -533,7 +530,7 @@ page_remove(pde_t *pgdir, void *va)
     }
     page_decref(pInfo);
     *pgtab = 0;
-    tlb_invalidate(pgdir, va); 
+    tlb_invalidate(pgdir, va);
 }
 
 //
@@ -571,9 +568,21 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	// LAB 3: Your code here.
-
-	return 0;
+    // LAB 3: Your code here.
+    uintptr_t start_va = ROUNDDOWN((uintptr_t)va, PGSIZE);
+    uintptr_t end_va = ROUNDUP((uintptr_t)va + len, PGSIZE);
+    for (uintptr_t cur_va=start_va; cur_va<end_va; cur_va+=PGSIZE) {
+        pte_t *cur_pte = pgdir_walk(env->env_pgdir, (void *)cur_va, 0);
+        if (cur_pte == NULL || (*cur_pte & (perm|PTE_P)) != (perm|PTE_P) || cur_va >= ULIM) {
+            if (cur_va == start_va) {
+                user_mem_check_addr = (uintptr_t)va;
+            } else {
+                user_mem_check_addr = cur_va;
+            }
+            return -E_FAULT;
+        }
+    }
+    return 0;
 }
 
 //
